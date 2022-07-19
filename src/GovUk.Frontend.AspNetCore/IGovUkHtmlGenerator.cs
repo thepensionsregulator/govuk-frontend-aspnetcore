@@ -14,8 +14,6 @@ namespace GovUk.Frontend.AspNetCore
             AttributeDictionary attributes,
             IEnumerable<AccordionItem> items);
 
-        TagBuilder GenerateAnchor(string href);
-
         TagBuilder GenerateBackLink(IHtmlContent content, AttributeDictionary attributes);
 
         TagBuilder GenerateBreadcrumbs(
@@ -153,6 +151,7 @@ namespace GovUk.Frontend.AspNetCore
 
         TagBuilder GenerateTabs(
             string id,
+            string idPrefix,
             string title,
             AttributeDictionary attributes,
             IEnumerable<TabsItem> items);

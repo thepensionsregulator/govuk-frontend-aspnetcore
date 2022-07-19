@@ -1,4 +1,5 @@
 using System.Linq;
+using GovUk.Frontend.AspNetCore.HtmlGeneration;
 using GovUk.Frontend.AspNetCore.TestCommon;
 using Xunit;
 
@@ -16,7 +17,7 @@ namespace GovUk.Frontend.AspNetCore.ConformanceTests
                 data,
                 (generator, options) =>
                 {
-                    var title = options.Title ?? ComponentDefaults.Tabs.Title;
+                    var title = options.Title ?? ComponentGenerator.TabsDefaultTitle;
 
                     var attributes = options.Attributes.ToAttributesDictionary()
                         .MergeAttribute("class", options.Classes);
@@ -25,12 +26,13 @@ namespace GovUk.Frontend.AspNetCore.ConformanceTests
                         {
                             Id = i.Id,
                             Label = i.Label,
+                            LinkAttributes = i.Attributes.ToAttributesDictionary(),
                             PanelAttributes = i.Panel.Attributes.ToAttributesDictionary(),
                             PanelContent = TextOrHtmlHelper.GetHtmlContent(i.Panel.Text, i.Panel.Html)
                         }))
                         .OrEmpty();
 
-                    return generator.GenerateTabs(options.Id, title, attributes, items)
+                    return generator.GenerateTabs(options.Id, options.IdPrefix, title, attributes, items)
                         .RenderToString();
                 });
     }

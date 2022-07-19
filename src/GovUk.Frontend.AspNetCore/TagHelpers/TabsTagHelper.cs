@@ -1,45 +1,86 @@
-﻿using System;
-using System.Collections.Generic;
+#nullable enable
 using System.Threading.Tasks;
+using GovUk.Frontend.AspNetCore.HtmlGeneration;
 using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 
 namespace GovUk.Frontend.AspNetCore.TagHelpers
 {
-    [HtmlTargetElement("govuk-tabs", TagStructure = TagStructure.NormalOrSelfClosing)]
-    [RestrictChildren("govuk-tabs-item")]
+    /// <summary>
+    /// Generates a GDS tabs component.
+    /// </summary>
+    [HtmlTargetElement(TagName)]
+    [RestrictChildren(TabsItemTagHelper.TagName)]
+    [OutputElementHint(ComponentGenerator.TabsElement)]
     public class TabsTagHelper : TagHelper
     {
-        internal const string IdPrefixAttributeName = "id-prefix";
+        internal const string TagName = "govuk-tabs";
+
         private const string IdAttributeName = "id";
+        private const string IdPrefixAttributeName = "id-prefix";
         private const string TitleAttributeName = "title";
 
         private readonly IGovUkHtmlGenerator _htmlGenerator;
 
-        public TabsTagHelper(IGovUkHtmlGenerator htmlGenerator)
+        private string _title = ComponentGenerator.TabsDefaultTitle;
+
+        /// <summary>
+        /// Creates a new <see cref="TabsTagHelper"/>.
+        /// </summary>
+        public TabsTagHelper()
+            : this(htmlGenerator: null)
         {
-            _htmlGenerator = htmlGenerator ?? throw new ArgumentNullException(nameof(htmlGenerator));
         }
 
+        internal TabsTagHelper(IGovUkHtmlGenerator? htmlGenerator)
+        {
+            _htmlGenerator = htmlGenerator ?? new ComponentGenerator();
+        }
+
+        /// <summary>
+        /// The <c>id</c> attribute for the tabs component.
+        /// </summary>
         [HtmlAttributeName(IdAttributeName)]
-        public string Id { get; set; }
+        public string? Id { get; set; }
 
+        /// <summary>
+        /// The prefix to use when generating the <c>id</c> attribute for each item.
+        /// </summary>
+        /// <remarks>
+        /// This is only used when an item does not have its own <c>id</c> specified.
+        /// </remarks>
         [HtmlAttributeName(IdPrefixAttributeName)]
-        public string IdPrefix { get; set; }
+        public string? IdPrefix { get; set; }
 
+        /// <summary>
+        /// The title for the tabs table of contents.
+        /// </summary>
+        /// <remarks>
+        /// The default is 'Contents'.
+        /// </remarks>
         [HtmlAttributeName(TitleAttributeName)]
-        public string Title { get; set; } = ComponentDefaults.Tabs.Title;
+        public string Title
+        {
+            get => _title;
+            set => _title = Guard.ArgumentNotNullOrEmpty(nameof(value), value);
+        }
 
+        /// <inheritdoc/>
         public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
         {
-            var tabsContext = new TabsContext(IdPrefix);
+            var tabsContext = new TabsContext(haveIdPrefix: IdPrefix != null);
 
-            using (context.SetScopedContextItem(typeof(TabsContext), tabsContext))
+            using (context.SetScopedContextItem(tabsContext))
             {
                 await output.GetChildContentAsync();
             }
 
-            var tagBuilder = _htmlGenerator.GenerateTabs(Id, Title, output.Attributes.ToAttributeDictionary(), tabsContext.Items);
+            var tagBuilder = _htmlGenerator.GenerateTabs(
+                Id,
+                IdPrefix,
+                Title,
+                output.Attributes.ToAttributeDictionary(),
+                tabsContext.Items);
 
             output.TagName = tagBuilder.TagName;
             output.TagMode = TagMode.StartTagAndEndTag;
@@ -47,74 +88,6 @@ namespace GovUk.Frontend.AspNetCore.TagHelpers
             output.Attributes.Clear();
             output.MergeAttributes(tagBuilder);
             output.Content.SetHtmlContent(tagBuilder.InnerHtml);
-        }
-    }
-
-    [HtmlTargetElement("govuk-tabs-item", ParentTag = "govuk-tabs", TagStructure = TagStructure.NormalOrSelfClosing)]
-    public class TabsItemTagHelper : TagHelper
-    {
-        private const string IdAttributeName = "id";
-        private const string LabelAttributeName = "label";
-
-        [HtmlAttributeName(IdAttributeName)]
-        public string Id { get; set; }
-
-        [HtmlAttributeName(LabelAttributeName)]
-        public string Label { get; set; }
-
-        public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
-        {
-            if (Label == null)
-            {
-                throw new InvalidOperationException($"The '{LabelAttributeName}' attribute must be specified.");
-            }
-
-            var tabsContext = (TabsContext)context.Items[typeof(TabsContext)];
-
-            if (Id == null && tabsContext.IdPrefix == null)
-            {
-                throw new InvalidOperationException(
-                    $"Item must have the '{IdAttributeName}' attribute specified when its parent doesn't specify the '{TabsTagHelper.IdPrefixAttributeName}' attribute.");
-            }
-
-            var index = tabsContext.Items.Count;
-            var resolvedId = Id ?? $"{tabsContext.IdPrefix}-{index}";
-
-            var content = await output.GetChildContentAsync();
-
-            tabsContext.AddItem(new TabsItem()
-            {
-                Id = resolvedId,
-                Label = Label,
-                PanelAttributes = output.Attributes.ToAttributeDictionary(),
-                PanelContent = content.Snapshot()
-            });
-
-            output.SuppressOutput();
-        }
-    }
-
-    internal class TabsContext
-    {
-        private readonly List<TabsItem> _items;
-
-        public TabsContext(string idPrefix)
-        {
-            IdPrefix = idPrefix;
-            _items = new List<TabsItem>();
-        }
-
-        public string IdPrefix { get; }
-        public IReadOnlyList<TabsItem> Items => _items;
-
-        public void AddItem(TabsItem item)
-        {
-            if (item == null)
-            {
-                throw new ArgumentNullException(nameof(item));
-            }
-
-            _items.Add(item);
         }
     }
 }
